@@ -5,35 +5,66 @@ const { toPairs, fromPairs, flatMap, uniq } = require('lodash');
 
 exports.detectSchema = object => fromPairs(detect(object));
 
-const detect = (object) =>
+const detect = object =>
   flatMap(toPairs(object), ([key, value]) => {
     const type = getFieldType(value);
-    if (Array.isArray(value)) {
-      const typesInArray = uniq(value.map(getFieldType));
-      if (value.length === 0) {
-        return [[key, 'array']]
-      } else if (typesInArray.length === 1) {
-        const itemType = typesInArray[0];
-        if (itemType === 'object') {
-          const subSchema = detect(value[0]).map(([path, type]) => [`${key}[].${path}`, type]);
-          return [[key, 'array'], [`${key}[]`, typesInArray[0]], ...subSchema];
-        }
-        return [[key, 'array'], [`${key}[]`, typesInArray[0]]]
-      } else {
-        return [[key, 'array'], [`${key}[]`, 'mixed']];
-      }
-    } else if (type === 'object') {
-      const subSchema = detect(value).map(([path, type]) => [`${key}.${path}`, type]);
-      return [[key, 'object'], ...subSchema];
-    }
-    return [[key, type]];
+    return [[key, type], ...getNestedSchemas(type, value, key)];
   });
+
+const getNestedSchemas = (type, value, prefix) => {
+  if (type === 'object') {
+    return detect(value).map(prefixPath(`${prefix}.`));
+  }
+  if (type === 'array') {
+    return detectArraySchema(value).map(prefixPath(`${prefix}[]`));
+  }
+  return [];
+};
+
+const detectArraySchema = array => {
+  const itemTypes = uniq(array.map(getFieldType));
+
+  if (itemTypes.length === 0) return [];
+  if (itemTypes.length > 1) return [['', 'mixed']];
+
+  const itemType = itemTypes[0];
+  return [['', itemType], ...detectSchemaOfItems(itemType, array)];
+};
+
+const detectSchemaOfItems = (type, items) => {
+  if (type === 'object') {
+    const schemas = items.map(detect);
+    return toPairs(calculateCommonSchema(schemas)).map(prefixPath('.'));
+  }
+  if (type === 'array') {
+    const schemas = items.map(detectArraySchema);
+    return toPairs(calculateCommonSchema(schemas)).map(prefixPath('[]'))
+  }
+  return [];
+};
+
+const calculateCommonSchema = schemas => {
+  return schemas.reduce((commonSchema, schemaDef) => {
+    schemaDef.forEach(([path, type]) => {
+      const previousType = commonSchema[path];
+      if (type === previousType) return;
+      if (!previousType) {
+        commonSchema[path] = type;
+      } else {
+        commonSchema[path] = 'mixed';
+      }
+    });
+    return commonSchema;
+  }, {});
+};
 
 const getFieldType = value => {
   const type = typeof value;
-  if (['number', 'boolean'].includes(type)) return type;
   if (type === 'string' && isISODate(value)) return 'date';
+  if (Array.isArray(value)) return 'array';
   return type;
 };
+
+const prefixPath = prefix => ([path, value]) => [`${prefix}${path}`, value];
 
 const isISODate = value => isValid(parseISO(value));

@@ -61,7 +61,8 @@ describe('detectSchema', () => {
     const schema = detectSchema({
       a: [12, 3],
       b: ['hap', 'lap'],
-      c: [{}]
+      c: [{}],
+      d: [[]]
     });
     expect(schema).toEqual({
       'a': 'array',
@@ -69,7 +70,9 @@ describe('detectSchema', () => {
       'b': 'array',
       'b[]': 'string',
       'c': 'array',
-      'c[]': 'object'
+      'c[]': 'object',
+      'd': 'array',
+      'd[]': 'array'
     });
   });
 
@@ -92,6 +95,34 @@ describe('detectSchema', () => {
       'a[]': 'object',
       'a[].b': 'number',
       'a[].c': 'string'
+    });
+  });
+
+  it('should detect the broadest possible schema when objects in array differ', () => {
+    const schema = detectSchema({
+      a: [
+        { b: 1, c: 'hat' },
+        { d: true },
+        { b: 'nyoc' }
+      ]
+    });
+    expect(schema).toEqual({
+      'a': 'array',
+      'a[]': 'object',
+      'a[].b': 'mixed',
+      'a[].c': 'string',
+      'a[].d': 'boolean'
+    });
+  });
+
+  it('should detect common schema for array of arrays', () => {
+    const schema = detectSchema({
+      a: [[1,2], [4]]
+    });
+    expect(schema).toEqual({
+      'a': 'array',
+      'a[]': 'array',
+      'a[][]': 'number'
     });
   });
 });
