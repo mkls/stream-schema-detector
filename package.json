@@ -1,0 +1,27 @@
+{
+  "name": "object-schema-detector",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/main.js",
+  "scripts": {
+    "test": "jest --watch --bail"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mkls/object-schema-detector.git"
+  },
+  "author": "mkls",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mkls/object-schema-detector/issues"
+  },
+  "homepage": "https://github.com/mkls/object-schema-detector#readme",
+  "devDependencies": {
+    "@types/jest": "^25.1.2",
+    "jest": "^25.1.0"
+  },
+  "dependencies": {
+    "date-fns": "^2.9.0",
+    "lodash": "^4.17.15"
+  }
+}
