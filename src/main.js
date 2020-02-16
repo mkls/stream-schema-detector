@@ -3,20 +3,22 @@
 const { parseISO, isValid } = require('date-fns');
 const { toPairs, fromPairs, flatMap, uniq } = require('lodash');
 
-exports.detectSchema = object => fromPairs(detect(object));
+exports.detectSchema = object => fromPairs(detectObjectSchema(object));
 
-const detect = object =>
+const detectObjectSchema = object =>
   flatMap(toPairs(object), ([key, value]) => {
     const type = getFieldType(value);
-    return [[key, type], ...getNestedSchemas(type, value, key)];
+    return [[key, type], ...detectSchemaOfItems(type, [value], key)];
   });
 
-const getNestedSchemas = (type, value, prefix) => {
+const detectSchemaOfItems = (type, items, prefix = '') => {
   if (type === 'object') {
-    return detect(value).map(prefixPath(`${prefix}.`));
+    const schemas = items.map(detectObjectSchema);
+    return calculateCommonSchema(schemas).map(prefixPath(`${prefix}.`));
   }
   if (type === 'array') {
-    return detectArraySchema(value).map(prefixPath(`${prefix}[]`));
+    const schemas = items.map(detectArraySchema);
+    return calculateCommonSchema(schemas).map(prefixPath(`${prefix}[]`));
   }
   return [];
 };
@@ -31,31 +33,23 @@ const detectArraySchema = array => {
   return [['', itemType], ...detectSchemaOfItems(itemType, array)];
 };
 
-const detectSchemaOfItems = (type, items) => {
-  if (type === 'object') {
-    const schemas = items.map(detect);
-    return toPairs(calculateCommonSchema(schemas)).map(prefixPath('.'));
-  }
-  if (type === 'array') {
-    const schemas = items.map(detectArraySchema);
-    return toPairs(calculateCommonSchema(schemas)).map(prefixPath('[]'))
-  }
-  return [];
-};
-
 const calculateCommonSchema = schemas => {
-  return schemas.reduce((commonSchema, schemaDef) => {
-    schemaDef.forEach(([path, type]) => {
-      const previousType = commonSchema[path];
-      if (type === previousType) return;
-      if (!previousType) {
-        commonSchema[path] = type;
-      } else {
-        commonSchema[path] = 'mixed';
-      }
-    });
-    return commonSchema;
-  }, {});
+  if (schemas.length === 1) return schemas[0];
+
+  return toPairs(
+    schemas.reduce((commonSchema, schemaDef) => {
+      schemaDef.forEach(([path, type]) => {
+        const previousType = commonSchema[path];
+        if (type === previousType) return;
+        if (!previousType) {
+          commonSchema[path] = type;
+        } else {
+          commonSchema[path] = 'mixed';
+        }
+      });
+      return commonSchema;
+    }, {})
+  );
 };
 
 const getFieldType = value => {
