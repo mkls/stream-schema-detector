@@ -57,16 +57,23 @@ describe('detectSchema', () => {
     expect(schema).toEqual({ a: 'array' });
   });
 
-  it('should detect array of numbers, string, objects, etc', () => {
+  it('should detect array on numbers', () => {
     const schema = detectSchema({
-      a: [12, 3],
+      a: [12, 3]
+    });
+    expect(schema).toEqual({
+      'a': 'array',
+      'a[]': 'number'
+    });
+  });
+
+  it('should detect array of string, objects, etc', () => {
+    const schema = detectSchema({
       b: ['hap', 'lap'],
       c: [{}],
       d: [[]]
     });
     expect(schema).toEqual({
-      'a': 'array',
-      'a[]': 'number',
       'b': 'array',
       'b[]': 'string',
       'c': 'array',

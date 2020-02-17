@@ -1,42 +1,42 @@
 'use strict';
 
 const { parseISO, isValid } = require('date-fns');
-const { toPairs, fromPairs, flatMap, uniq } = require('lodash');
+const { toPairs, fromPairs, flatMap } = require('lodash');
 
-exports.detectSchema = object => fromPairs(detectObjectSchema(object));
+exports.detectSchema = object => fromPairs(detect(object).slice(1));
 
-const detectObjectSchema = object =>
-  flatMap(toPairs(object), ([key, value]) => {
-    const type = getFieldType(value);
-    return [[key, type], ...detectSchemaOfItems(type, [value], key)];
-  });
-
-const detectSchemaOfItems = (type, items, prefix = '') => {
-  if (type === 'object') {
-    const schemas = items.map(detectObjectSchema);
-    return calculateCommonSchema(schemas).map(prefixPath(`${prefix}.`));
-  }
-  if (type === 'array') {
-    const schemas = items.map(detectArraySchema);
-    return calculateCommonSchema(schemas).map(prefixPath(`${prefix}[]`));
-  }
-  return [];
+const detect = item => {
+  const type = getItemType(item);
+  return [
+    ['', type],
+    ...(type === 'object' ? detectObject(item) : []),
+    ...(type === 'array' ? detectArray(item) : [])
+  ].map(([path, type]) => [path.replace(/\.\[\]/g, '[]'), type]);
 };
 
-const detectArraySchema = array => {
-  const itemTypes = uniq(array.map(getFieldType));
-
-  if (itemTypes.length === 0) return [];
-  if (itemTypes.length > 1) return [['', 'mixed']];
-
-  const itemType = itemTypes[0];
-  return [['', itemType], ...detectSchemaOfItems(itemType, array)];
+const getItemType = value => {
+  const type = typeof value;
+  if (type === 'string' && isISODate(value)) return 'date';
+  if (Array.isArray(value)) return 'array';
+  return type;
 };
 
-const calculateCommonSchema = schemas => {
-  if (schemas.length === 1) return schemas[0];
+const isISODate = value => isValid(parseISO(value));
 
-  return toPairs(
+const detectObject = object =>
+  flatMap(
+    toPairs(object).map(([path, value]) =>
+      detect(value).map(([subPath, type]) => [subPath ? `${path}.${subPath}` : path, type])
+    )
+  );
+
+const detectArray = items => {
+  const commonSchemaOfItems = calculateCommonSchema(items.map(detect));
+  return commonSchemaOfItems.map(([subPath, type]) => [subPath ? `[].${subPath}` : '[]', type]);
+};
+
+const calculateCommonSchema = schemas =>
+  toPairs(
     schemas.reduce((commonSchema, schemaDef) => {
       schemaDef.forEach(([path, type]) => {
         const previousType = commonSchema[path];
@@ -50,15 +50,3 @@ const calculateCommonSchema = schemas => {
       return commonSchema;
     }, {})
   );
-};
-
-const getFieldType = value => {
-  const type = typeof value;
-  if (type === 'string' && isISODate(value)) return 'date';
-  if (Array.isArray(value)) return 'array';
-  return type;
-};
-
-const prefixPath = prefix => ([path, value]) => [`${prefix}${path}`, value];
-
-const isISODate = value => isValid(parseISO(value));
