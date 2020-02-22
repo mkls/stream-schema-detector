@@ -1,7 +1,7 @@
 'use strict';
 
 const { parseISO, isValid } = require('date-fns');
-const { toPairs, fromPairs, flatMap } = require('lodash');
+const { toPairs, fromPairs, flatMap, isEqual } = require('lodash');
 
 exports.detectSchema = object => fromPairs(detect(object).slice(1));
 
@@ -50,3 +50,32 @@ const calculateCommonSchema = schemas =>
       return commonSchema;
     }, {})
   );
+
+exports.createStreamSchemaDetector = ({
+  saveSchema = async () => {},
+  loadSchema = async () => {}
+}) => {
+  const schemaCache = {};
+
+  const getCachedSchema = async idParams => {
+    const key = JSON.stringify(idParams);
+    if (!schemaCache[key]) {
+      schemaCache[key] = await loadSchema(idParams);
+    }
+    return schemaCache[key];
+  };
+
+  return async (idParams, eventData) => {
+    const schema = exports.detectSchema(eventData);
+
+    const cacheSchema = await getCachedSchema(idParams, loadSchema);
+
+    if (isEqual(cacheSchema, schema)) return;
+
+    const savedSchema = await loadSchema(idParams);
+
+    if (!isEqual(savedSchema, schema)) {
+      await saveSchema(idParams, schema);
+    }
+  };
+};

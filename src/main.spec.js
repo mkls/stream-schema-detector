@@ -1,6 +1,6 @@
 'use strict';
 
-const { detectSchema } = require('./main');
+const { detectSchema, createStreamSchemaDetector } = require('./main');
 
 describe('detectSchema', () => {
   it('should return the schema a of a one level deep object', () => {
@@ -131,5 +131,49 @@ describe('detectSchema', () => {
       'a[]': 'array',
       'a[][]': 'number'
     });
+  });
+});
+
+describe('streamSchemaDetector', () => {
+  it('should detect schema for a given event type amd save it with passed in callback', async () => {
+    const saveSchema = jest.fn();
+    const detect = createStreamSchemaDetector({ saveSchema });
+
+    await detect({ eventId: 13 }, { a: [23, 3]});
+
+    expect(saveSchema).toBeCalledWith({ eventId: 13 }, { 'a': 'array', 'a[]': 'number' });
+  });
+
+  it('should not save schema if detected schema does not differ from loaded one', async () => {
+    const loadSchema = async () => ({ a: 'number' });
+    const saveSchema = jest.fn();
+    const detect = createStreamSchemaDetector({ loadSchema, saveSchema });
+
+    await detect('event-A', { a: 14 });
+
+    expect(saveSchema).not.toBeCalled();
+  });
+
+  it('should cache schemas in memory and not load again for the same params', async () => {
+    const loadSchema = jest.fn().mockResolvedValue({ a: 'boolean' });
+    const detect = createStreamSchemaDetector({ loadSchema });
+
+    await detect('event-A', { a: true });
+    await detect('event-A', { a: false });
+
+    expect(loadSchema).toBeCalledTimes(1);
+  });
+
+  it('should load schema again before saving to avoid updates based on outdated cache', async () => {
+    const schemaStore = { 'eventA': { a: 'number' }};
+    const loadSchema = async id => schemaStore[id];
+    const saveSchema = jest.fn();
+    const detect = createStreamSchemaDetector({ loadSchema, saveSchema });
+
+    await detect('eventA', { a: 14 });
+    schemaStore['eventA'] = { a: 'boolean' };
+    await detect('eventA', { a: true });
+
+    expect(saveSchema).not.toBeCalled();
   });
 });

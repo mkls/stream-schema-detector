@@ -1,5 +1,5 @@
 {
-  "name": "object-schema-detector",
+  "name": "stream-schema-detector",
   "version": "1.0.0",
   "description": "",
   "main": "src/main.js",
@@ -8,14 +8,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mkls/object-schema-detector.git"
+    "url": "git+https://github.com/mkls/stream-schema-detector.git"
   },
   "author": "mkls",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/mkls/object-schema-detector/issues"
+    "url": "https://github.com/mkls/stream-schema-detector/issues"
   },
-  "homepage": "https://github.com/mkls/object-schema-detector#readme",
+  "homepage": "https://github.com/mkls/stream-schema-detector#readme",
   "devDependencies": {
     "@types/jest": "^25.1.2",
     "jest": "^25.1.0"
