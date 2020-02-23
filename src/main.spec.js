@@ -28,7 +28,7 @@ describe('detectSchema', () => {
       }
     });
     expect(schema).toEqual({
-      'a': 'object',
+      a: 'object',
       'a.b': 'string'
     });
   });
@@ -49,7 +49,7 @@ describe('detectSchema', () => {
       'a.c': 'object',
       'a.c.d': 'string',
       'a.c.e': 'object'
-    })
+    });
   });
 
   it('should detect empty array', () => {
@@ -62,7 +62,7 @@ describe('detectSchema', () => {
       a: [12, 3]
     });
     expect(schema).toEqual({
-      'a': 'array',
+      a: 'array',
       'a[]': 'number'
     });
   });
@@ -74,11 +74,11 @@ describe('detectSchema', () => {
       d: [[]]
     });
     expect(schema).toEqual({
-      'b': 'array',
+      b: 'array',
       'b[]': 'string',
-      'c': 'array',
+      c: 'array',
       'c[]': 'object',
-      'd': 'array',
+      d: 'array',
       'd[]': 'array'
     });
   });
@@ -86,19 +86,17 @@ describe('detectSchema', () => {
   it('should detect mixed array', () => {
     const schema = detectSchema({ a: [1, 'hap'] });
     expect(schema).toEqual({
-      'a': 'array',
+      a: 'array',
       'a[]': 'mixed'
     });
   });
 
   it('should detect schema of object inside arrays', () => {
     const schema = detectSchema({
-      a: [
-        { b: 12, c: 't' }
-      ]
+      a: [{ b: 12, c: 't' }]
     });
     expect(schema).toEqual({
-      'a': 'array',
+      a: 'array',
       'a[]': 'object',
       'a[].b': 'number',
       'a[].c': 'string'
@@ -107,14 +105,10 @@ describe('detectSchema', () => {
 
   it('should detect the broadest possible schema when objects in array differ', () => {
     const schema = detectSchema({
-      a: [
-        { b: 1, c: 'hat' },
-        { d: true },
-        { b: 'nyoc' }
-      ]
+      a: [{ b: 1, c: 'hat' }, { d: true }, { b: 'nyoc' }]
     });
     expect(schema).toEqual({
-      'a': 'array',
+      a: 'array',
       'a[]': 'object',
       'a[].b': 'mixed',
       'a[].c': 'string',
@@ -124,10 +118,10 @@ describe('detectSchema', () => {
 
   it('should detect common schema for array of arrays', () => {
     const schema = detectSchema({
-      a: [[1,2], [4]]
+      a: [[1, 2], [4]]
     });
     expect(schema).toEqual({
-      'a': 'array',
+      a: 'array',
       'a[]': 'array',
       'a[][]': 'number'
     });
@@ -135,19 +129,23 @@ describe('detectSchema', () => {
 });
 
 describe('streamSchemaDetector', () => {
+  let loadSchema, saveSchema, detect, schemaStore;
+
+  beforeEach(() => {
+    schemaStore = {};
+    loadSchema = jest.fn().mockImplementation(async id => schemaStore[id]);
+    saveSchema = jest.fn().mockImplementation(async (id, schema) => (schemaStore[id] = schema));
+    detect = createStreamSchemaDetector({ loadSchema, saveSchema });
+  });
+
   it('should detect schema for a given event type amd save it with passed in callback', async () => {
-    const saveSchema = jest.fn();
-    const detect = createStreamSchemaDetector({ saveSchema });
+    await detect({ eventId: 13 }, { a: [23, 3] });
 
-    await detect({ eventId: 13 }, { a: [23, 3]});
-
-    expect(saveSchema).toBeCalledWith({ eventId: 13 }, { 'a': 'array', 'a[]': 'number' });
+    expect(saveSchema).toBeCalledWith({ eventId: 13 }, { a: 'array', 'a[]': 'number' });
   });
 
   it('should not save schema if detected schema does not differ from loaded one', async () => {
-    const loadSchema = async () => ({ a: 'number' });
-    const saveSchema = jest.fn();
-    const detect = createStreamSchemaDetector({ loadSchema, saveSchema });
+    schemaStore['event-A'] = { a: 'number' };
 
     await detect('event-A', { a: 14 });
 
@@ -155,8 +153,7 @@ describe('streamSchemaDetector', () => {
   });
 
   it('should cache schemas in memory and not load again for the same params', async () => {
-    const loadSchema = jest.fn().mockResolvedValue({ a: 'boolean' });
-    const detect = createStreamSchemaDetector({ loadSchema });
+    schemaStore['event-A'] = { a: 'boolean' };
 
     await detect('event-A', { a: true });
     await detect('event-A', { a: false });
@@ -165,14 +162,34 @@ describe('streamSchemaDetector', () => {
   });
 
   it('should load schema again before saving to avoid updates based on outdated cache', async () => {
-    const schemaStore = { 'eventA': { a: 'number' }};
-    const loadSchema = async id => schemaStore[id];
-    const saveSchema = jest.fn();
-    const detect = createStreamSchemaDetector({ loadSchema, saveSchema });
+    schemaStore['eventA'] = { a: 'number' };
 
     await detect('eventA', { a: 14 });
-    schemaStore['eventA'] = { a: 'boolean' };
+    schemaStore['eventA'] = { a: 'mixed' };
     await detect('eventA', { a: true });
+
+    expect(saveSchema).not.toBeCalled();
+  });
+
+  it('should generalize schema with information from new events', async () => {
+    await detect('A', { a: 12 });
+    await detect('A', { b: true });
+
+    expect(await loadSchema('A')).toEqual({ a: 'number', b: 'boolean' });
+  });
+
+  it('should not save new schema if saved schema only differs by being more general', async () => {
+    schemaStore['eventA'] = { a: 'mixed', b: 'number' };
+
+    await detect('eventA', { a: true, b: 3 });
+
+    expect(saveSchema).not.toBeCalled();
+  });
+
+  it('should not save new schema if there are less fields in newly detected schema', async () => {
+    schemaStore['eventA'] = { a: 'number', b: 'boolean' };
+
+    await detect('eventA', { b: true });
 
     expect(saveSchema).not.toBeCalled();
   });

@@ -1,7 +1,7 @@
 'use strict';
 
 const { parseISO, isValid } = require('date-fns');
-const { toPairs, fromPairs, flatMap, isEqual } = require('lodash');
+const { toPairs, fromPairs, flatMap } = require('lodash');
 
 exports.detectSchema = object => fromPairs(detect(object).slice(1));
 
@@ -31,25 +31,23 @@ const detectObject = object =>
   );
 
 const detectArray = items => {
-  const commonSchemaOfItems = calculateCommonSchema(items.map(detect));
+  const commonSchemaOfItems = toPairs(calculateCommonSchema(items.map(detect)));
   return commonSchemaOfItems.map(([subPath, type]) => [subPath ? `[].${subPath}` : '[]', type]);
 };
 
 const calculateCommonSchema = schemas =>
-  toPairs(
-    schemas.reduce((commonSchema, schemaDef) => {
-      schemaDef.forEach(([path, type]) => {
-        const previousType = commonSchema[path];
-        if (type === previousType) return;
-        if (!previousType) {
-          commonSchema[path] = type;
-        } else {
-          commonSchema[path] = 'mixed';
-        }
-      });
-      return commonSchema;
-    }, {})
-  );
+  schemas.reduce((commonSchema, schemaDef) => {
+    schemaDef.forEach(([path, type]) => {
+      const previousType = commonSchema[path];
+      if (type === previousType) return;
+      if (!previousType) {
+        commonSchema[path] = type;
+      } else {
+        commonSchema[path] = 'mixed';
+      }
+    });
+    return commonSchema;
+  }, {});
 
 exports.createStreamSchemaDetector = ({
   saveSchema = async () => {},
@@ -57,25 +55,33 @@ exports.createStreamSchemaDetector = ({
 }) => {
   const schemaCache = {};
 
-  const getCachedSchema = async idParams => {
+  const getSchema = async (idParams, forceRefresh = false) => {
     const key = JSON.stringify(idParams);
-    if (!schemaCache[key]) {
+    if (!schemaCache[key] || forceRefresh) {
       schemaCache[key] = await loadSchema(idParams);
     }
-    return schemaCache[key];
+    return schemaCache[key] || {};
   };
 
   return async (idParams, eventData) => {
     const schema = exports.detectSchema(eventData);
 
-    const cacheSchema = await getCachedSchema(idParams, loadSchema);
+    const cacheSchema = await getSchema(idParams);
+    if (isMoreSpecificVersion(cacheSchema, schema)) return;
+    const savedSchema = await getSchema(idParams, true);
 
-    if (isEqual(cacheSchema, schema)) return;
-
-    const savedSchema = await loadSchema(idParams);
-
-    if (!isEqual(savedSchema, schema)) {
-      await saveSchema(idParams, schema);
+    if (!isMoreSpecificVersion(savedSchema, schema)) {
+      const updatedSchema = calculateCommonSchema([toPairs(savedSchema), toPairs(schema)]);
+      await saveSchema(idParams, updatedSchema);
     }
   };
+};
+
+const isMoreSpecificVersion = (genericSchema, specificSchema) => {
+  return toPairs(specificSchema).reduce((isMatchingSoFar, [path, type]) => {
+    if (!isMatchingSoFar) return false;
+    const genericTypeForPath = genericSchema[path];
+    if (!genericTypeForPath) return false;
+    return genericTypeForPath === type || genericTypeForPath === 'mixed';
+  }, true);
 };
