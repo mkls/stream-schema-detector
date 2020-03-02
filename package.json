@@ -1,7 +1,7 @@
 {
   "name": "stream-schema-detector",
   "version": "1.0.0",
-  "description": "",
+  "description": "detect of schema of event streams",
   "main": "src/main.js",
   "scripts": {
     "test": "jest --watch --bail"
