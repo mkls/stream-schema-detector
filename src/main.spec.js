@@ -141,7 +141,11 @@ describe('streamSchemaDetector', () => {
   it('should detect schema for a given event type amd save it with passed in callback', async () => {
     await detect({ eventId: 13 }, { a: [23, 3] });
 
-    expect(saveSchema).toBeCalledWith({ eventId: 13 }, { a: 'array', 'a[]': 'number' });
+    expect(saveSchema).toBeCalledWith(
+      { eventId: 13 },
+      { a: 'array', 'a[]': 'number' },
+      { a: [23, 3] }
+    );
   });
 
   it('should not save schema if detected schema does not differ from loaded one', async () => {

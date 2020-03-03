@@ -23,9 +23,29 @@ const schema = detechSchema({ a: 23, b: { c: true, d: [12] } });
 
 ## createStreamSchemaDetector({ loadScheam, saveSchema })
 
-Create a `detector(typeParam, object)` function which will detect the schema of
-multiple events by type and update them when detection differs from stored
-version.
+Create a `detect` function which will detect the schema of multiple events by type
+and update them when detected schema differs from stored version.
+
+- `loadSchema(typeParam)`:
+
+  called when no cached schema is found for given typeParam, should return a saved schema.
+  `typeParam` could be any json strigifiable value.
+
+- `saveSchema(typeParam, schema, exampleItem)`:
+
+  called when the detected schema differs from one returned by `loadSchema`.
+
+- `detect(typeParam, item)`:
+
+  the returned function, can be called with a `typeParam` and an item we want to inspect.
+
+  Will call `loadSchema` for the given typeParam and compare its return value with
+  the detected schema of the item. Calls `saveSchema` if detected schema differs from
+  saved one.
+
+  The result of `loadSchema` is cached in memory, it will only be called once for
+  each `typeParam` until no differences are detected.
+
 
 ```js
 const { createStreamSchemaDetector } = require('./main');
@@ -48,18 +68,6 @@ await detect('purchase', { x: 2 });
   'purcahse': { x: 'number' }
 }
 ```
-
-The returned `detect` function has two parameters: `typeParam` and the object we
-want to inspect.
-For `typeParam` a complex object can also be passed in, this
-will be passed on to `loadSchema` and `storeSchema` as the first parameter.
-
-Will keep cached version of schemas seen so far in memory, only calls `loadSchema` when the
-first time it sees the schema and when a conflicting schema was detected on stream, to see
-if it was updated in store since the last version in memory.
-
-If the newly detected still differs from the one in store, it will call `saveSchema` to
-save a new version.
 
 ### Using object as `typeParam`
 

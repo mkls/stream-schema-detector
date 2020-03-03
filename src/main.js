@@ -55,24 +55,24 @@ exports.createStreamSchemaDetector = ({
 }) => {
   const schemaCache = {};
 
-  const getSchema = async (idParams, forceRefresh = false) => {
-    const key = JSON.stringify(idParams);
+  const getSchema = async (typeParam, forceRefresh = false) => {
+    const key = JSON.stringify(typeParam);
     if (!schemaCache[key] || forceRefresh) {
-      schemaCache[key] = await loadSchema(idParams);
+      schemaCache[key] = await loadSchema(typeParam);
     }
     return schemaCache[key] || {};
   };
 
-  return async (idParams, eventData) => {
+  return async (typeParam, eventData) => {
     const schema = exports.detectSchema(eventData);
 
-    const cacheSchema = await getSchema(idParams);
+    const cacheSchema = await getSchema(typeParam);
     if (isMoreSpecificVersion(cacheSchema, schema)) return;
-    const savedSchema = await getSchema(idParams, true);
+    const savedSchema = await getSchema(typeParam, true);
 
     if (!isMoreSpecificVersion(savedSchema, schema)) {
       const updatedSchema = calculateCommonSchema([toPairs(savedSchema), toPairs(schema)]);
-      await saveSchema(idParams, updatedSchema);
+      await saveSchema(typeParam, updatedSchema, eventData);
     }
   };
 };
