@@ -1,15 +1,15 @@
 # stream-schema-detector
 
-Detect of schema of event streams.
+Detect schema of event streams.
 
 ## detectSchema(object)
 
-Can detect of the schame of a single object:
+Can detect the schema of a single object:
 
 ```js
 const { detectSchema } = require('./main');
 
-const schema = detechSchema({ a: 23, b: { c: true, d: [12] } });
+const schema = detectSchema({ a: 23, b: { c: true, d: [12] } });
 
 // schema is:
 {
@@ -21,9 +21,9 @@ const schema = detechSchema({ a: 23, b: { c: true, d: [12] } });
 }
 ```
 
-## createStreamSchemaDetector({ loadScheam, saveSchema })
+## createStreamSchemaDetector({ loadSchema, saveSchema })
 
-Create a `detect` function which will detect the schema of multiple events by type
+Creates a `detect` function which will detect the schema of multiple events by type
 and update them when detected schema differs from stored version.
 
 - `loadSchema(typeParam)`:
@@ -53,7 +53,7 @@ const { createStreamSchemaDetector } = require('./main');
 const schemaStore = {};
 const loadSchema = async typeId => schemaStore[typeId];
 const saveSchema = async (typeId, schema) => {
-  schemaStore[typeId] = schema)
+  schemaStore[typeId] = schema;
 };
 
 const detect = createStreamSchemaDetector({ loadSchema, saveSchema });
@@ -65,7 +65,7 @@ await detect('purchase', { x: 2 });
 // content of schemaStore:
 {
   'browse_events': { a: 'number', b: 'mixed', c: 'number' },
-  'purcahse': { x: 'number' }
+  'purchase': { x: 'number' }
 }
 ```
 
@@ -75,7 +75,7 @@ await detect('purchase', { x: 2 });
 const schemaStore = {};
 const loadSchema = async ({ source, type }) => schemaStore[`${source}_${type}`];
 const saveSchema = async ({ source, type }, schema) => {
-  schemaStore[`${source}_${type}`] = schema)
+  schemaStore[`${source}_${type}`] = schema;
 };
 
 const detect = createStreamSchemaDetector({ loadSchema, saveSchema });
