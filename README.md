@@ -9,15 +9,15 @@ Can detect the schema of a single object:
 ```js
 const { detectSchema } = require('./main');
 
-const schema = detectSchema({ a: 23, b: { c: true, d: [12] } });
+const schema = detectSchema({ a: 23, b: { c: true, d: [12, true] } });
 
 // schema is:
 {
-  'a': 'number',
-  'b': 'object',
-  'b.c': 'boolean',
-  'b.d': 'array',
-  'b.d[]': 'number'
+  'a': ['number'],
+  'b': ['object'],
+  'b.c': ['boolean'],
+  'b.d': ['array'],
+  'b.d[]': ['number']
 }
 ```
 
@@ -64,8 +64,8 @@ await detect('purchase', { x: 2 });
 
 // content of schemaStore:
 {
-  'browse_events': { a: 'number', b: 'mixed', c: 'number' },
-  'purchase': { x: 'number' }
+  'browse_events': { a: ['number'], b: ['string', 'boolean'], c: ['number'] },
+  'purchase': { x: ['number'] }
 }
 ```
 
@@ -83,5 +83,5 @@ const detect = createStreamSchemaDetector({ loadSchema, saveSchema });
 await detect({ source: 'A', type: 'x' }, { a: 4});
 
 // schemaStore:
-{ 'A_x': { a: 'number' } }
+{ 'A_x': { a: ['number'] } }
 ```
