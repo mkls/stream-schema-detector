@@ -7,8 +7,11 @@ const calculateCommonSchema = require('./calculate-common-schema');
 module.exports = ({ saveSchema = async () => {}, loadSchema = async () => {} }) => {
   const schemaCache = {};
 
+  const getCacheKey = typeParam => JSON.stringify(typeParam);
+  const updateCache = (typeParam, schema) => schemaCache[getCacheKey(typeParam)] = schema;
+
   const getSchema = async (typeParam, forceRefresh = false) => {
-    const key = JSON.stringify(typeParam);
+    const key = getCacheKey(typeParam);
     if (!schemaCache[key] || forceRefresh) {
       schemaCache[key] = await loadSchema(typeParam);
     }
@@ -18,12 +21,13 @@ module.exports = ({ saveSchema = async () => {}, loadSchema = async () => {} }) 
   return async (typeParam, eventData) => {
     const schema = detectSchema(eventData);
 
-    const cacheSchema = await getSchema(typeParam);
-    if (isMoreSpecificVersion(cacheSchema, schema)) return;
+    const cachedSchema = await getSchema(typeParam);
+    if (isMoreSpecificVersion(cachedSchema, schema)) return;
     const savedSchema = await getSchema(typeParam, true);
 
     if (!isMoreSpecificVersion(savedSchema, schema)) {
       const updatedSchema = calculateCommonSchema([toPairs(savedSchema), toPairs(schema)]);
+      updateCache(typeParam, updatedSchema);
       await saveSchema(typeParam, updatedSchema, eventData);
     }
   };

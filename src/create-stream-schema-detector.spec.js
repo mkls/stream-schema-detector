@@ -71,4 +71,13 @@ describe('streamSchemaDetector', () => {
 
     expect(saveSchema).not.toBeCalled();
   });
+
+  it('should not load schema again if it was just updated by the current process', async () => {
+    schemaStore['event-A'] = {};
+
+    await detect('event-A', { a: 14 });
+    await detect('event-A', { a: 34 });
+
+    expect(loadSchema).toHaveBeenCalledTimes(2);
+  });
 });
