@@ -3,22 +3,37 @@
 const { detectSchema, createStreamSchemaDetector } = require('./main');
 
 describe('detectSchema', () => {
-  it('should return the schema a of a one level deep object', () => {
+  it('should return the schema of a one level deep object', () => {
     const schema = detectSchema({
       a: 23,
       b: 'feji',
       c: true
     });
     expect(schema).toEqual({
-      a: 'number',
-      b: 'string',
-      c: 'boolean'
+      a: ['number'],
+      b: ['string'],
+      c: ['boolean']
+    });
+  });
+
+  it('should detect null or undefined values', () => {
+    const schema = detectSchema({
+      a: null,
+      b: undefined,
+      c: '',
+      d: 0
+    });
+    expect(schema).toEqual({
+      a: ['null'],
+      b: ['undefined'],
+      c: ['string'],
+      d: ['number']
     });
   });
 
   it('should detect date type if it is in ISO 8601 format', () => {
     const schema = detectSchema({ a: '2020-02-16T06:13:39.977Z' });
-    expect(schema).toEqual({ a: 'date' });
+    expect(schema).toEqual({ a: ['date'] });
   });
 
   it('should return schema for nested object', () => {
@@ -28,8 +43,8 @@ describe('detectSchema', () => {
       }
     });
     expect(schema).toEqual({
-      a: 'object',
-      'a.b': 'string'
+      a: ['object'],
+      'a.b': ['string']
     });
   });
 
@@ -44,17 +59,17 @@ describe('detectSchema', () => {
       }
     });
     expect(schema).toEqual({
-      a: 'object',
-      'a.b': 'number',
-      'a.c': 'object',
-      'a.c.d': 'string',
-      'a.c.e': 'object'
+      a: ['object'],
+      'a.b': ['number'],
+      'a.c': ['object'],
+      'a.c.d': ['string'],
+      'a.c.e': ['object']
     });
   });
 
   it('should detect empty array', () => {
     const schema = detectSchema({ a: [] });
-    expect(schema).toEqual({ a: 'array' });
+    expect(schema).toEqual({ a: ['array'] });
   });
 
   it('should detect array on numbers', () => {
@@ -62,8 +77,8 @@ describe('detectSchema', () => {
       a: [12, 3]
     });
     expect(schema).toEqual({
-      a: 'array',
-      'a[]': 'number'
+      a: ['array'],
+      'a[]': ['number']
     });
   });
 
@@ -74,20 +89,20 @@ describe('detectSchema', () => {
       d: [[]]
     });
     expect(schema).toEqual({
-      b: 'array',
-      'b[]': 'string',
-      c: 'array',
-      'c[]': 'object',
-      d: 'array',
-      'd[]': 'array'
+      b: ['array'],
+      'b[]': ['string'],
+      c: ['array'],
+      'c[]': ['object'],
+      d: ['array'],
+      'd[]': ['array']
     });
   });
 
   it('should detect mixed array', () => {
     const schema = detectSchema({ a: [1, 'hap'] });
     expect(schema).toEqual({
-      a: 'array',
-      'a[]': 'mixed'
+      a: ['array'],
+      'a[]': ['number', 'string']
     });
   });
 
@@ -96,10 +111,10 @@ describe('detectSchema', () => {
       a: [{ b: 12, c: 't' }]
     });
     expect(schema).toEqual({
-      a: 'array',
-      'a[]': 'object',
-      'a[].b': 'number',
-      'a[].c': 'string'
+      a: ['array'],
+      'a[]': ['object'],
+      'a[].b': ['number'],
+      'a[].c': ['string']
     });
   });
 
@@ -108,11 +123,11 @@ describe('detectSchema', () => {
       a: [{ b: 1, c: 'hat' }, { d: true }, { b: 'nyoc' }]
     });
     expect(schema).toEqual({
-      a: 'array',
-      'a[]': 'object',
-      'a[].b': 'mixed',
-      'a[].c': 'string',
-      'a[].d': 'boolean'
+      a: ['array'],
+      'a[]': ['object'],
+      'a[].b': ['number', 'string'],
+      'a[].c': ['string'],
+      'a[].d': ['boolean']
     });
   });
 
@@ -121,9 +136,9 @@ describe('detectSchema', () => {
       a: [[1, 2], [4]]
     });
     expect(schema).toEqual({
-      a: 'array',
-      'a[]': 'array',
-      'a[][]': 'number'
+      a: ['array'],
+      'a[]': ['array'],
+      'a[][]': ['number']
     });
   });
 });
@@ -143,13 +158,13 @@ describe('streamSchemaDetector', () => {
 
     expect(saveSchema).toBeCalledWith(
       { eventId: 13 },
-      { a: 'array', 'a[]': 'number' },
+      { a: ['array'], 'a[]': ['number'] },
       { a: [23, 3] }
     );
   });
 
   it('should not save schema if detected schema does not differ from loaded one', async () => {
-    schemaStore['event-A'] = { a: 'number' };
+    schemaStore['event-A'] = { a: ['number'] };
 
     await detect('event-A', { a: 14 });
 
@@ -157,7 +172,7 @@ describe('streamSchemaDetector', () => {
   });
 
   it('should cache schemas in memory and not load again for the same params', async () => {
-    schemaStore['event-A'] = { a: 'boolean' };
+    schemaStore['event-A'] = { a: ['boolean'] };
 
     await detect('event-A', { a: true });
     await detect('event-A', { a: false });
@@ -166,10 +181,10 @@ describe('streamSchemaDetector', () => {
   });
 
   it('should load schema again before saving to avoid updates based on outdated cache', async () => {
-    schemaStore['eventA'] = { a: 'number' };
+    schemaStore['eventA'] = { a: ['number'] };
 
     await detect('eventA', { a: 14 });
-    schemaStore['eventA'] = { a: 'mixed' };
+    schemaStore['eventA'] = { a: ['number', 'boolean'] };
     await detect('eventA', { a: true });
 
     expect(saveSchema).not.toBeCalled();
@@ -179,11 +194,11 @@ describe('streamSchemaDetector', () => {
     await detect('A', { a: 12 });
     await detect('A', { b: true });
 
-    expect(await loadSchema('A')).toEqual({ a: 'number', b: 'boolean' });
+    expect(await loadSchema('A')).toEqual({ a: ['number'], b: ['boolean'] });
   });
 
   it('should not save new schema if saved schema only differs by being more general', async () => {
-    schemaStore['eventA'] = { a: 'mixed', b: 'number' };
+    schemaStore['eventA'] = { a: ['number', 'boolean'], b: ['number'] };
 
     await detect('eventA', { a: true, b: 3 });
 
@@ -191,7 +206,7 @@ describe('streamSchemaDetector', () => {
   });
 
   it('should not save new schema if there are less fields in newly detected schema', async () => {
-    schemaStore['eventA'] = { a: 'number', b: 'boolean' };
+    schemaStore['eventA'] = { a: ['number'], b: ['boolean'] };
 
     await detect('eventA', { b: true });
 

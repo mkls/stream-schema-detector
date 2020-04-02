@@ -8,7 +8,7 @@ exports.detectSchema = object => fromPairs(detect(object).slice(1));
 const detect = item => {
   const type = getItemType(item);
   return [
-    ['', type],
+    ['', [type]],
     ...(type === 'object' ? detectObject(item) : []),
     ...(type === 'array' ? detectArray(item) : [])
   ].map(([path, type]) => [path.replace(/\.\[\]/g, '[]'), type]);
@@ -18,6 +18,7 @@ const getItemType = value => {
   const type = typeof value;
   if (type === 'string' && isISODate(value)) return 'date';
   if (Array.isArray(value)) return 'array';
+  if (value === null) return 'null';
   return type;
 };
 
@@ -37,13 +38,14 @@ const detectArray = items => {
 
 const calculateCommonSchema = schemas =>
   schemas.reduce((commonSchema, schemaDef) => {
-    schemaDef.forEach(([path, type]) => {
-      const previousType = commonSchema[path];
-      if (type === previousType) return;
-      if (!previousType) {
-        commonSchema[path] = type;
+    schemaDef.forEach(([path, types]) => {
+      const previousTypes = commonSchema[path];
+      if (!previousTypes) {
+        commonSchema[path] = types;
+      } else if (types.some(type => previousTypes.includes(type))) {
+        return;
       } else {
-        commonSchema[path] = 'mixed';
+        commonSchema[path] = [...previousTypes, ...types];
       }
     });
     return commonSchema;
@@ -78,10 +80,10 @@ exports.createStreamSchemaDetector = ({
 };
 
 const isMoreSpecificVersion = (genericSchema, specificSchema) => {
-  return toPairs(specificSchema).reduce((isMatchingSoFar, [path, type]) => {
+  return toPairs(specificSchema).reduce((isMatchingSoFar, [path, types]) => {
     if (!isMatchingSoFar) return false;
-    const genericTypeForPath = genericSchema[path];
-    if (!genericTypeForPath) return false;
-    return genericTypeForPath === type || genericTypeForPath === 'mixed';
+    const genericTypesForPath = genericSchema[path];
+    if (!genericTypesForPath) return false;
+    return types.every(type => genericTypesForPath.includes(type));
   }, true);
 };
