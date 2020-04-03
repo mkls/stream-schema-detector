@@ -72,12 +72,20 @@ describe('streamSchemaDetector', () => {
     expect(saveSchema).not.toBeCalled();
   });
 
+  it('should only load schema once when it is not found in cache or store', async () => {
+    schemaStore['event-A'] = {};
+
+    await detect('event-A', { a: 14 });
+
+    expect(loadSchema).toHaveBeenCalledTimes(1);
+  });
+
   it('should not load schema again if it was just updated by the current process', async () => {
     schemaStore['event-A'] = {};
 
     await detect('event-A', { a: 14 });
     await detect('event-A', { a: 34 });
 
-    expect(loadSchema).toHaveBeenCalledTimes(2);
+    expect(loadSchema).toHaveBeenCalledTimes(1);
   });
 });

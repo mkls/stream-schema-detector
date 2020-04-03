@@ -8,23 +8,21 @@ module.exports = ({ saveSchema = async () => {}, loadSchema = async () => {} }) 
   const schemaCache = {};
 
   const getCacheKey = typeParam => JSON.stringify(typeParam);
-  const updateCache = (typeParam, schema) => schemaCache[getCacheKey(typeParam)] = schema;
-
-  const getSchema = async (typeParam, forceRefresh = false) => {
-    const key = getCacheKey(typeParam);
-    if (!schemaCache[key] || forceRefresh) {
-      schemaCache[key] = await loadSchema(typeParam);
-    }
-    return schemaCache[key] || {};
+  const updateCache = (typeParam, schema) => (schemaCache[getCacheKey(typeParam)] = schema);
+  const getSchemaFromCache = typeParam => schemaCache[getCacheKey(typeParam)];
+  const getSchemaFromStore = async typeParam => {
+    const schema = (await loadSchema(typeParam)) || {};
+    updateCache(typeParam, schema);
+    return schema;
   };
 
   return async (typeParam, eventData) => {
     const schema = detectSchema(eventData);
 
-    const cachedSchema = await getSchema(typeParam);
-    if (isMoreSpecificVersion(cachedSchema, schema)) return;
-    const savedSchema = await getSchema(typeParam, true);
+    const cachedSchema = getSchemaFromCache(typeParam);
+    if (cachedSchema && isMoreSpecificVersion(cachedSchema, schema)) return;
 
+    const savedSchema = await getSchemaFromStore(typeParam);
     if (!isMoreSpecificVersion(savedSchema, schema)) {
       const updatedSchema = calculateCommonSchema([toPairs(savedSchema), toPairs(schema)]);
       updateCache(typeParam, updatedSchema);
