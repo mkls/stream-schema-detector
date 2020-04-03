@@ -88,4 +88,21 @@ describe('streamSchemaDetector', () => {
 
     expect(loadSchema).toHaveBeenCalledTimes(1);
   });
+
+  it('should limit the number of schemas cached in memory with maxCacheSize options', async () => {
+    const schemaStore = {
+      'event-a': { a: ['boolean'] },
+      'event-b': { b: ['number'] },
+      'event-c': { c: ['string'] }
+    };
+    const loadSchema = jest.fn().mockImplementation(async id => schemaStore[id]);
+    const detect = createStreamSchemaDetector({ loadSchema, maxCacheSize: 1 });
+
+    await detect('event-a', { a: true });
+    await detect('event-b', { b: 3 });
+    await detect('event-c', { c: 'asdf' }); // quick-lru only evicts old cache when limit is more than twice exceeded
+    await detect('event-a', { a: false });
+
+    expect(loadSchema).toBeCalledTimes(4);
+  });
 });

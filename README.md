@@ -21,7 +21,7 @@ const schema = detectSchema({ a: 23, b: { c: true, d: [12, true] } });
 }
 ```
 
-## createStreamSchemaDetector({ loadSchema, saveSchema })
+## createStreamSchemaDetector({ loadSchema, saveSchema, maxCacheSize })
 
 Creates a `detect` function which will detect the schema of multiple events by type
 and update them when detected schema differs from stored version.
@@ -34,6 +34,10 @@ and update them when detected schema differs from stored version.
 - `saveSchema(typeParam, schema, exampleItem)`:
 
   called when the detected schema differs from one returned by `loadSchema`.
+
+- `maxCacheSize`
+
+  the number of schemas to cache in memory (default is 500)
 
 - `detect(typeParam, item)`:
 

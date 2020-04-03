@@ -1,6 +1,6 @@
 {
   "name": "stream-schema-detector",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "detect of schema of event streams",
   "main": "src/main.js",
   "scripts": {
@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "date-fns": "^2.11.1",
-    "lodash": "^4.17.15"
+    "lodash": "^4.17.15",
+    "quick-lru": "^5.0.0"
   }
 }
